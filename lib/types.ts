@@ -45,9 +45,12 @@ export interface AuthUser {
   name: string;
   email: string;
   phone: string;
+  role: UserRole;
   createdAt?: string;
   photoUrl?: string | null;
 }
+
+export type UserRole = "customer" | "staff" | "admin";
 
 export interface AuthPayload {
   user: AuthUser;

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "./auth-provider";
 import { ProfilePhoto } from "./profile-photo";
+import { ROLE_LABELS } from "@/lib/roles";
 
 const TITLES: Array<[RegExp, string]> = [
   [/^\/$/, "Dashboard"],
@@ -15,6 +16,7 @@ const TITLES: Array<[RegExp, string]> = [
   [/^\/services\/[^/]+$/, "Service Details"],
   [/^\/services$/, "Service Records"],
   [/^\/overdue-services$/, "Overdue Services"],
+  [/^\/admin\/users$/, "User Management"],
   [/^\/profile$/, "My Profile"],
   [/^\/login$/, "Staff Login"],
   [/^\/signup$/, "Create Account"],
@@ -48,6 +50,9 @@ export function Header({ onMenu }: { onMenu: () => void }) {
         </div>
         {isAuthenticated && user ? (
           <div className="flex items-center gap-2.5">
+            <span className="hidden rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-blue-700 sm:inline">
+              {ROLE_LABELS[user.role]}
+            </span>
             <Link
               href="/profile"
               className="hidden max-w-[180px] truncate rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 sm:inline"

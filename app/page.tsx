@@ -27,6 +27,8 @@ import {
   fetchServices,
   getApiErrorMessage,
 } from "@/lib/api";
+import { isStaff } from "@/lib/roles";
+import { useAuth } from "@/components/auth-provider";
 import { formatDate, isOverdueService } from "@/lib/utils";
 import {
   Button,
@@ -51,6 +53,8 @@ interface Stats {
 
 export default function DashboardPage() {
   const toast = useToast();
+  const { user, isLoading: authLoading } = useAuth();
+  const staff = isStaff(user);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats>({
@@ -66,6 +70,32 @@ export default function DashboardPage() {
   const [overdue, setOverdue] = useState<Awaited<ReturnType<typeof fetchOverdueServices>>>([]);
 
   const load = useCallback(async () => {
+    // Customers can't call staff-only endpoints — load bikes only.
+    if (!authLoading && !staff) {
+      setLoading(true);
+      setError(null);
+      try {
+        const bikes = await fetchBikes();
+        setStats({
+          customers: 0,
+          bikes: bikes.length,
+          services: 0,
+          pending: 0,
+          inProgress: 0,
+          done: 0,
+          overdue: 0,
+        });
+        setRecent([]);
+        setOverdue([]);
+      } catch (err) {
+        const msg = getApiErrorMessage(err, "Failed to load dashboard data.");
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -105,11 +135,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, authLoading, staff]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (!authLoading) load();
+  }, [load, authLoading]);
 
   const chartData = useMemo(
     () => [
@@ -121,37 +151,50 @@ export default function DashboardPage() {
   );
 
   const cards = [
-    { label: "Total Customers", value: stats.customers, icon: Users, accent: "bg-blue-100 text-blue-700" },
-    { label: "Total Bikes", value: stats.bikes, icon: BikeIcon, accent: "bg-violet-100 text-violet-700" },
-    { label: "Service Records", value: stats.services, icon: Wrench, accent: "bg-slate-200 text-slate-700" },
-    { label: "Pending", value: stats.pending, icon: Clock, accent: "bg-amber-100 text-amber-700" },
-    { label: "Completed", value: stats.done, icon: CheckCircle2, accent: "bg-emerald-100 text-emerald-700" },
-    { label: "Overdue (>7d)", value: stats.overdue, icon: AlertTriangle, accent: "bg-red-100 text-red-700" },
+    { label: "Total Customers", value: stats.customers, icon: Users, accent: "bg-blue-100 text-blue-700", staffOnly: true },
+    { label: "Total Bikes", value: stats.bikes, icon: BikeIcon, accent: "bg-violet-100 text-violet-700", staffOnly: false },
+    { label: "Service Records", value: stats.services, icon: Wrench, accent: "bg-slate-200 text-slate-700", staffOnly: true },
+    { label: "Pending", value: stats.pending, icon: Clock, accent: "bg-amber-100 text-amber-700", staffOnly: true },
+    { label: "Completed", value: stats.done, icon: CheckCircle2, accent: "bg-emerald-100 text-emerald-700", staffOnly: true },
+    { label: "Overdue (>7d)", value: stats.overdue, icon: AlertTriangle, accent: "bg-red-100 text-red-700", staffOnly: true },
   ];
+  const visibleCards = cards.filter((c) => staff || !c.staffOnly);
 
   return (
     <div>
       <PageHeader
         title="Dashboard"
-        subtitle="Overview of customers, bikes, and service jobs."
+        subtitle={
+          staff
+            ? "Overview of customers, bikes, and service jobs."
+            : "Your bikes at a glance."
+        }
         actions={
-          <>
-            <Link href="/customers">
-              <Button variant="secondary">
-                <Plus className="h-4 w-4" /> Customer
-              </Button>
-            </Link>
+          staff ? (
+            <>
+              <Link href="/customers">
+                <Button variant="secondary">
+                  <Plus className="h-4 w-4" /> Customer
+                </Button>
+              </Link>
+              <Link href="/bikes">
+                <Button variant="secondary">
+                  <Plus className="h-4 w-4" /> Bike
+                </Button>
+              </Link>
+              <Link href="/services">
+                <Button>
+                  <Plus className="h-4 w-4" /> Service
+                </Button>
+              </Link>
+            </>
+          ) : (
             <Link href="/bikes">
-              <Button variant="secondary">
+              <Button>
                 <Plus className="h-4 w-4" /> Bike
               </Button>
             </Link>
-            <Link href="/services">
-              <Button>
-                <Plus className="h-4 w-4" /> Service
-              </Button>
-            </Link>
-          </>
+          )
         }
       />
 
@@ -162,7 +205,7 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {cards.map((c) => {
+            {visibleCards.map((c) => {
               const Icon = c.icon;
               return (
                 <Card key={c.label} className="p-5">
@@ -180,6 +223,25 @@ export default function DashboardPage() {
             })}
           </div>
 
+          {!staff ? (
+            <Card className="mt-6 p-5">
+              <h2 className="text-sm font-bold text-slate-900">Quick actions</h2>
+              <p className="text-xs text-slate-500">Things you can do with your account.</p>
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Link href="/bikes" className="rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:bg-blue-50">
+                  <BikeIcon className="h-5 w-5 text-blue-600" />
+                  <p className="mt-2 text-sm font-bold text-slate-900">My bikes</p>
+                  <p className="text-xs text-slate-500">Register a new bike</p>
+                </Link>
+                <Link href="/profile" className="rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:bg-blue-50">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  <p className="mt-2 text-sm font-bold text-slate-900">My profile</p>
+                  <p className="text-xs text-slate-500">Update details & photo</p>
+                </Link>
+              </div>
+            </Card>
+          ) : (
+            <>
           <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
             <Card className="p-5 xl:col-span-1">
               <h2 className="text-sm font-bold text-slate-900">Service status summary</h2>
@@ -324,6 +386,8 @@ export default function DashboardPage() {
               </div>
             </Card>
           </div>
+            </>
+          )}
         </>
       )}
     </div>

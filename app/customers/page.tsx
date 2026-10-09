@@ -10,6 +10,8 @@ import {
   getApiErrorMessage,
   updateCustomer,
 } from "@/lib/api";
+import { canViewCustomers, isAdmin } from "@/lib/roles";
+import { RequireRole } from "@/components/require-role";
 import type { Customer } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import {
@@ -23,11 +25,14 @@ import {
   SkeletonTable,
 } from "@/components/ui";
 import { CustomerForm, type CustomerFormValues } from "@/components/customer-form";
+import { useAuth } from "@/components/auth-provider";
 import { useToast } from "@/components/toast";
 import { inputClass } from "@/components/ui";
 
-export default function CustomersPage() {
+function CustomersContent() {
   const toast = useToast();
+  const { user } = useAuth();
+  const admin = isAdmin(user);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -186,7 +191,9 @@ export default function CustomersPage() {
                         <button
                           aria-label={`Delete ${c.name}`}
                           onClick={() => setDeleting(c)}
-                          className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-700"
+                          disabled={!admin}
+                          title={admin ? `Delete ${c.name}` : "Admin only"}
+                          className="rounded-lg p-2 text-slate-500 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -216,11 +223,19 @@ export default function CustomersPage() {
       <ConfirmDialog
         open={deleting !== null}
         title="Delete customer?"
-        description={`This will permanently delete ${deleting?.name ?? "this customer"} and all related bikes and service records. This cannot be undone.`}
+        description={`This will permanently delete ${deleting?.name ?? "this customer"} and all related bikes and service records. This cannot be undone. (Admin only.)`}
         busy={deleteBusy}
         onCancel={() => setDeleting(null)}
         onConfirm={handleDelete}
       />
     </div>
+  );
+}
+
+export default function CustomersPage() {
+  return (
+    <RequireRole allow={canViewCustomers}>
+      <CustomersContent />
+    </RequireRole>
   );
 }

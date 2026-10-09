@@ -4,12 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { fetchOverdueServices, getApiErrorMessage } from "@/lib/api";
+import { canViewServices } from "@/lib/roles";
+import { RequireRole } from "@/components/require-role";
 import type { ServiceRecord } from "@/lib/types";
 import { daysSince, formatDate } from "@/lib/utils";
 import { Card, EmptyState, ErrorState, PageHeader, SkeletonTable, StatusBadge } from "@/components/ui";
 import { useToast } from "@/components/toast";
 
-export default function OverdueServicesPage() {
+function OverdueServicesContent() {
   const toast = useToast();
   const [items, setItems] = useState<ServiceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,5 +83,13 @@ export default function OverdueServicesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function OverdueServicesPage() {
+  return (
+    <RequireRole allow={canViewServices}>
+      <OverdueServicesContent />
+    </RequireRole>
   );
 }

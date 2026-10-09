@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Eye, Plus, Search } from "lucide-react";
 import { createBike, fetchBikes, fetchCustomers, getApiErrorMessage } from "@/lib/api";
+import { isStaff } from "@/lib/roles";
+import { useAuth } from "@/components/auth-provider";
 import type { Bike, Customer } from "@/lib/types";
 import { Button, Card, EmptyState, ErrorState, Modal, PageHeader, SkeletonTable, inputClass } from "@/components/ui";
 import { BikeForm, type BikeFormValues } from "@/components/bike-form";
@@ -12,8 +14,13 @@ import { useToast } from "@/components/toast";
 
 function BikesContent() {
   const toast = useToast();
+  const { user } = useAuth();
   const searchParams = useSearchParams();
   const preselectedCustomer = searchParams.get("customer") ?? "";
+  // Customers can't list /customers (staff+admin only) and may only
+  // register bikes to their own customerId (== auth user id).
+  const staff = isStaff(user);
+  const ownCustomerId = !staff ? (user?.id ?? "") : "";
 
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -28,15 +35,28 @@ function BikesContent() {
     setLoading(true);
     setError(null);
     try {
-      const [b, c] = await Promise.all([fetchBikes(), fetchCustomers()]);
+      const b = await fetchBikes();
       setBikes(b);
-      setCustomers(c);
+      if (staff) {
+        setCustomers(await fetchCustomers());
+      } else if (user) {
+        // Owner stub so the form can display the fixed owner.
+        setCustomers([
+          {
+            customerId: user.id,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            createdAt: user.createdAt ?? new Date().toISOString(),
+          },
+        ]);
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to load bikes."));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [staff, user]);
 
   useEffect(() => {
     load();
@@ -62,7 +82,11 @@ function BikesContent() {
     setSaving(true);
     setServerError(null);
     try {
-      const created = await createBike(values);
+      // Customers are restricted to their own customerId — enforce it.
+      const payload = ownCustomerId
+        ? { ...values, customerId: ownCustomerId }
+        : values;
+      const created = await createBike(payload);
       // Attach customer object for immediate display
       const owner = customers.find((c) => c.customerId === created.customerId);
       setBikes((prev) => [{ ...created, customer: owner ?? created.customer }, ...prev]);
@@ -179,6 +203,7 @@ function BikesContent() {
             busy={saving}
             serverError={serverError}
             defaultCustomerId={preselectedCustomer || undefined}
+            lockedCustomerId={ownCustomerId || undefined}
             onSubmit={handleSubmit}
           />
         )}

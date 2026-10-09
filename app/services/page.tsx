@@ -11,6 +11,8 @@ import {
   fetchServices,
   getApiErrorMessage,
 } from "@/lib/api";
+import { canViewServices } from "@/lib/roles";
+import { RequireRole } from "@/components/require-role";
 import type { Bike, ServiceRecord } from "@/lib/types";
 import { formatDate, shortId } from "@/lib/utils";
 import {
@@ -274,8 +276,10 @@ function ServicesContent() {
 
 export default function ServicesPage() {
   return (
-    <Suspense fallback={<SkeletonTable />}>
-      <ServicesContent />
-    </Suspense>
+    <RequireRole allow={canViewServices}>
+      <Suspense fallback={<SkeletonTable />}>
+        <ServicesContent />
+      </Suspense>
+    </RequireRole>
   );
 }

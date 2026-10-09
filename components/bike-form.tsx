@@ -26,12 +26,15 @@ export function BikeForm({
   busy,
   serverError,
   defaultCustomerId,
+  lockedCustomerId,
   onSubmit,
 }: {
   customers: Customer[];
   busy?: boolean;
   serverError?: string | null;
   defaultCustomerId?: string;
+  /** When set (customer role), owner is fixed and the select is hidden. */
+  lockedCustomerId?: string;
   onSubmit: (values: BikeFormValues) => void;
 }) {
   const {
@@ -47,7 +50,7 @@ export function BikeForm({
       brand: "",
       model: "",
       year: currentYear as unknown as number,
-      customerId: defaultCustomerId ?? "",
+      customerId: lockedCustomerId ?? defaultCustomerId ?? "",
     },
   });
 
@@ -99,18 +102,31 @@ export function BikeForm({
           <label htmlFor="bike-customer" className={labelClass}>
             Customer
           </label>
-          <select
-            id="bike-customer"
-            className={inputClass}
-            {...register("customerId")}
-          >
-            <option value="">Select a customer…</option>
-            {customers.map((c) => (
-              <option key={c.customerId} value={c.customerId}>
-                {c.name} — {c.email}
-              </option>
-            ))}
-          </select>
+          {lockedCustomerId ? (
+            <>
+              <input
+                type="hidden"
+                value={lockedCustomerId}
+                {...register("customerId")}
+              />
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">
+                Your account (bikes are registered to you)
+              </p>
+            </>
+          ) : (
+            <select
+              id="bike-customer"
+              className={inputClass}
+              {...register("customerId")}
+            >
+              <option value="">Select a customer…</option>
+              {customers.map((c) => (
+                <option key={c.customerId} value={c.customerId}>
+                  {c.name} — {c.email}
+                </option>
+              ))}
+            </select>
+          )}
           <FieldError message={errors.customerId?.message} />
         </div>
       </div>

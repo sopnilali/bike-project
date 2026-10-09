@@ -61,9 +61,10 @@ export default function SignupPage() {
         </span>
       </div>
       <Card className="p-6 sm:p-8">
-        <h1 className="text-xl font-bold text-slate-900">Create staff account</h1>
+        <h1 className="text-xl font-bold text-slate-900">Create customer account</h1>
         <p className="mt-1 text-sm text-slate-500">
-          Calls <code className="font-mono text-xs">POST /api/auth/signup</code>.
+          Public signup always creates a <strong>customer</strong> account. Staff/admin
+          accounts are created by an admin.
         </p>
         <form onSubmit={handleSubmit(onSubmit)} className="mt-6 space-y-4" noValidate>
           <div>

@@ -6,6 +6,7 @@ import type {
   Bike,
   Customer,
   ServiceRecord,
+  UserRole,
 } from "./types";
 
 const baseURL =
@@ -195,6 +196,11 @@ function normalizeUser(raw: unknown): AuthUser {
     (u._id as string) ??
     (u.customerId as string) ??
     "";
+  const rawRole = (u.role as string) ?? "";
+  const role: UserRole =
+    rawRole === "admin" || rawRole === "staff" || rawRole === "customer"
+      ? rawRole
+      : "customer";
   const photoRaw =
     (u.photoUrl as unknown) ??
     (u.photo as unknown) ??
@@ -210,6 +216,7 @@ function normalizeUser(raw: unknown): AuthUser {
     name: String(u.name ?? ""),
     email: String(u.email ?? ""),
     phone: String(u.phone ?? ""),
+    role,
     createdAt: typeof u.createdAt === "string" ? u.createdAt : undefined,
     photoUrl:
       typeof photoRaw === "string" && photoRaw.length > 0 ? photoRaw : null,
@@ -296,6 +303,29 @@ export async function resetPassword(input: {
   newPassword: string;
 }): Promise<void> {
   await api.post("/auth/reset-password", input);
+}
+
+// ---------- Admin: user + role management (admin only) ----------
+export async function createUser(input: {
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  role: UserRole;
+}): Promise<AuthUser> {
+  const { data } = await api.post<ApiEnvelope<unknown>>("/auth/users", input);
+  return normalizeUser(data.data);
+}
+
+export async function updateUserRole(
+  id: string,
+  role: UserRole
+): Promise<AuthUser> {
+  const { data } = await api.patch<ApiEnvelope<unknown>>(
+    `/auth/users/${encodeURIComponent(id)}/role`,
+    { role }
+  );
+  return normalizeUser(data.data);
 }
 
 // ---------- Profile photo ----------

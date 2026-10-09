@@ -9,23 +9,36 @@ import {
   Wrench,
   AlertTriangle,
   User,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "./auth-provider";
+import { ROLE_LABELS } from "@/lib/roles";
+import type { UserRole } from "@/lib/types";
 
-const NAV = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/customers", label: "Customers", icon: Users, exact: false },
-  { href: "/bikes", label: "Bikes", icon: BikeIcon, exact: false },
-  { href: "/services", label: "Service Records", icon: Wrench, exact: false },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  exact: boolean;
+  roles: UserRole[];
+}
+
+const NAV: NavItem[] = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true, roles: ["customer", "staff", "admin"] },
+  { href: "/customers", label: "Customers", icon: Users, exact: false, roles: ["staff", "admin"] },
+  { href: "/bikes", label: "Bikes", icon: BikeIcon, exact: false, roles: ["customer", "staff", "admin"] },
+  { href: "/services", label: "Service Records", icon: Wrench, exact: false, roles: ["staff", "admin"] },
   {
     href: "/overdue-services",
     label: "Overdue Services",
     icon: AlertTriangle,
     exact: true,
+    roles: ["staff", "admin"],
   },
-  { href: "/profile", label: "My Profile", icon: User, exact: true },
+  { href: "/admin/users", label: "User Management", icon: ShieldCheck, exact: false, roles: ["admin"] },
+  { href: "/profile", label: "My Profile", icon: User, exact: true, roles: ["customer", "staff", "admin"] },
 ];
 
 export function Sidebar({
@@ -37,6 +50,10 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuth();
+
+  const visibleNav = NAV.filter(
+    (item) => !isAuthenticated || (user && item.roles.includes(user.role))
+  );
 
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
@@ -87,7 +104,7 @@ export function Sidebar({
             Menu
           </p>
           <ul className="space-y-1">
-            {NAV.map((item) => {
+            {visibleNav.map((item) => {
               const active = isActive(item.href, item.exact);
               const Icon = item.icon;
               return (
@@ -115,7 +132,12 @@ export function Sidebar({
         <div className="border-t border-slate-100 p-4">
           {isAuthenticated && user ? (
             <div className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-              <p className="truncate font-semibold text-slate-700">{user.name}</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="truncate font-semibold text-slate-700">{user.name}</p>
+                <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">
+                  {ROLE_LABELS[user.role]}
+                </span>
+              </div>
               <p className="truncate">{user.email}</p>
               <button
                 onClick={logout}

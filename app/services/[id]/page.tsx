@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { completeService, fetchService, getApiErrorMessage } from "@/lib/api";
+import { canViewServices } from "@/lib/roles";
+import { RequireRole } from "@/components/require-role";
 import type { ServiceRecord } from "@/lib/types";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Button, Card, ErrorState, LoadingSpinner, StatusBadge } from "@/components/ui";
@@ -162,8 +164,10 @@ function ServiceDetailsContent() {
 
 export default function ServiceDetailsPage() {
   return (
-    <Suspense fallback={<LoadingSpinner label="Loading service…" />}>
-      <ServiceDetailsContent />
-    </Suspense>
+    <RequireRole allow={canViewServices}>
+      <Suspense fallback={<LoadingSpinner label="Loading service…" />}>
+        <ServiceDetailsContent />
+      </Suspense>
+    </RequireRole>
   );
 }
