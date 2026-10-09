@@ -1,69 +1,331 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  Users,
+  Bike as BikeIcon,
+  Wrench,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Plus,
+  ArrowRight,
+} from "lucide-react";
+import {
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+import {
+  fetchBikes,
+  fetchCustomers,
+  fetchOverdueServices,
+  fetchServices,
+  getApiErrorMessage,
+} from "@/lib/api";
+import { formatDate, isOverdueService } from "@/lib/utils";
+import {
+  Button,
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  SkeletonCards,
+  StatusBadge,
+} from "@/components/ui";
+import { useToast } from "@/components/toast";
+
+interface Stats {
+  customers: number;
+  bikes: number;
+  services: number;
+  pending: number;
+  inProgress: number;
+  done: number;
+  overdue: number;
+}
+
+export default function DashboardPage() {
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<Stats>({
+    customers: 0,
+    bikes: 0,
+    services: 0,
+    pending: 0,
+    inProgress: 0,
+    done: 0,
+    overdue: 0,
+  });
+  const [recent, setRecent] = useState<Awaited<ReturnType<typeof fetchServices>>>([]);
+  const [overdue, setOverdue] = useState<Awaited<ReturnType<typeof fetchOverdueServices>>>([]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [customers, bikes, services, overdueList] = await Promise.all([
+        fetchCustomers(),
+        fetchBikes(),
+        fetchServices(),
+        fetchOverdueServices().catch(() => []),
+      ]);
+      const pending = services.filter((s) => s.status === "pending").length;
+      const inProgress = services.filter((s) => s.status === "in-progress").length;
+      const done = services.filter((s) => s.status === "done").length;
+      const overdueCount =
+        overdueList.length > 0
+          ? overdueList.length
+          : services.filter((s) => isOverdueService(s.serviceDate, s.status)).length;
+
+      setStats({
+        customers: customers.length,
+        bikes: bikes.length,
+        services: services.length,
+        pending,
+        inProgress,
+        done,
+        overdue: overdueCount,
+      });
+      setRecent(
+        [...services].sort(
+          (a, b) => +new Date(b.serviceDate) - +new Date(a.serviceDate)
+        ).slice(0, 6)
+      );
+      setOverdue(overdueList.slice(0, 6));
+    } catch (err) {
+      const msg = getApiErrorMessage(err, "Failed to load dashboard data.");
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const chartData = useMemo(
+    () => [
+      { name: "Pending", value: stats.pending, color: "#f59e0b" },
+      { name: "In Progress", value: stats.inProgress, color: "#3b82f6" },
+      { name: "Done", value: stats.done, color: "#10b981" },
+    ],
+    [stats]
+  );
+
+  const cards = [
+    { label: "Total Customers", value: stats.customers, icon: Users, accent: "bg-blue-100 text-blue-700" },
+    { label: "Total Bikes", value: stats.bikes, icon: BikeIcon, accent: "bg-violet-100 text-violet-700" },
+    { label: "Service Records", value: stats.services, icon: Wrench, accent: "bg-slate-200 text-slate-700" },
+    { label: "Pending", value: stats.pending, icon: Clock, accent: "bg-amber-100 text-amber-700" },
+    { label: "Completed", value: stats.done, icon: CheckCircle2, accent: "bg-emerald-100 text-emerald-700" },
+    { label: "Overdue (>7d)", value: stats.overdue, icon: AlertTriangle, accent: "bg-red-100 text-red-700" },
+  ];
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div>
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of customers, bikes, and service jobs."
+        actions={
+          <>
+            <Link href="/customers">
+              <Button variant="secondary">
+                <Plus className="h-4 w-4" /> Customer
+              </Button>
+            </Link>
+            <Link href="/bikes">
+              <Button variant="secondary">
+                <Plus className="h-4 w-4" /> Bike
+              </Button>
+            </Link>
+            <Link href="/services">
+              <Button>
+                <Plus className="h-4 w-4" /> Service
+              </Button>
+            </Link>
+          </>
+        }
+      />
+
+      {loading ? (
+        <SkeletonCards count={6} />
+      ) : error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {cards.map((c) => {
+              const Icon = c.icon;
+              return (
+                <Card key={c.label} className="p-5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-slate-500">{c.label}</p>
+                    <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${c.accent}`}>
+                      <Icon className="h-5 w-5" />
+                    </span>
+                  </div>
+                  <p className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900">
+                    {c.value}
+                  </p>
+                </Card>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <Card className="p-5 xl:col-span-1">
+              <h2 className="text-sm font-bold text-slate-900">Service status summary</h2>
+              <p className="text-xs text-slate-500">Live data from the API.</p>
+              {stats.services === 0 ? (
+                <p className="py-8 text-center text-sm text-slate-500">
+                  No service records yet.
+                </p>
+              ) : (
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie data={chartData} dataKey="value" nameKey="name" outerRadius={85} label>
+                        {chartData.map((d) => (
+                          <Cell key={d.name} fill={d.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+              <Link
+                href="/services"
+                className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-800"
+              >
+                View all services <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Card>
+
+            <Card className="p-5 xl:col-span-2">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Recent service records</h2>
+                  <p className="text-xs text-slate-500">Latest jobs by service date.</p>
+                </div>
+                <Link href="/services" className="text-sm font-semibold text-blue-600 hover:text-blue-800">
+                  View all
+                </Link>
+              </div>
+              {recent.length === 0 ? (
+                <EmptyState
+                  title="No service records"
+                  description="Create your first service record to start tracking jobs."
+                  action={
+                    <Link href="/services">
+                      <Button>Create service</Button>
+                    </Link>
+                  }
+                />
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[560px] text-left text-sm">
+                    <thead>
+                      <tr className="text-xs uppercase tracking-wide text-slate-400">
+                        <th className="py-2 pr-3 font-semibold">Bike</th>
+                        <th className="py-2 pr-3 font-semibold">Date</th>
+                        <th className="py-2 pr-3 font-semibold">Status</th>
+                        <th className="py-2 font-semibold">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recent.map((s) => (
+                        <tr key={s.serviceId} className="border-t border-slate-100">
+                          <td className="py-2.5 pr-3 font-semibold text-slate-800">
+                            {s.bike ? `${s.bike.brand} ${s.bike.model}` : s.bikeId.slice(0, 8)}
+                          </td>
+                          <td className="py-2.5 pr-3 text-slate-600">{formatDate(s.serviceDate)}</td>
+                          <td className="py-2.5 pr-3">
+                            <StatusBadge status={s.status} />
+                          </td>
+                          <td className="max-w-[240px] truncate py-2.5 text-slate-600">
+                            <Link href={`/services/${s.serviceId}`} className="hover:text-blue-700 hover:underline">
+                              {s.description}
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <Card className="border-amber-200 p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" /> Overdue services
+                </h2>
+                <Link href="/overdue-services" className="text-sm font-semibold text-blue-600 hover:text-blue-800">
+                  View all
+                </Link>
+              </div>
+              {overdue.length === 0 ? (
+                <p className="rounded-xl bg-emerald-50 px-4 py-6 text-center text-sm font-medium text-emerald-700">
+                  All clear — no overdue services.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {overdue.map((s) => (
+                    <li
+                      key={s.serviceId}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {s.bike ? `${s.bike.brand} ${s.bike.model}` : "Unknown bike"} · {formatDate(s.serviceDate)}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">{s.description}</p>
+                      </div>
+                      <Link href={`/services/${s.serviceId}`} className="shrink-0 text-xs font-bold text-blue-700 hover:underline">
+                        Open →
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card className="p-5">
+              <h2 className="text-sm font-bold text-slate-900">Quick actions</h2>
+              <p className="text-xs text-slate-500">Common tasks for front-desk staff.</p>
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Link href="/customers" className="rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:bg-blue-50">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  <p className="mt-2 text-sm font-bold text-slate-900">Add customer</p>
+                  <p className="text-xs text-slate-500">Register a new client</p>
+                </Link>
+                <Link href="/bikes" className="rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:bg-blue-50">
+                  <BikeIcon className="h-5 w-5 text-blue-600" />
+                  <p className="mt-2 text-sm font-bold text-slate-900">Add bike</p>
+                  <p className="text-xs text-slate-500">Link bike to owner</p>
+                </Link>
+                <Link href="/services" className="rounded-xl border border-slate-200 p-4 hover:border-blue-300 hover:bg-blue-50">
+                  <Wrench className="h-5 w-5 text-blue-600" />
+                  <p className="mt-2 text-sm font-bold text-slate-900">New service</p>
+                  <p className="text-xs text-slate-500">Open a job card</p>
+                </Link>
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
     </div>
   );
 }
