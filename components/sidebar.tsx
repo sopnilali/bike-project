@@ -8,9 +8,11 @@ import {
   Bike as BikeIcon,
   Wrench,
   AlertTriangle,
+  User,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "./auth-provider";
 
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -23,6 +25,7 @@ const NAV = [
     icon: AlertTriangle,
     exact: true,
   },
+  { href: "/profile", label: "My Profile", icon: User, exact: true },
 ];
 
 export function Sidebar({
@@ -33,6 +36,7 @@ export function Sidebar({
   onClose: () => void;
 }) {
   const pathname = usePathname();
+  const { user, isAuthenticated, logout } = useAuth();
 
   const isActive = (href: string, exact: boolean) =>
     exact ? pathname === href : pathname === href || pathname.startsWith(href + "/");
@@ -109,10 +113,28 @@ export function Sidebar({
         </nav>
 
         <div className="border-t border-slate-100 p-4">
-          <div className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
-            <p className="font-semibold text-slate-700">Staff workspace</p>
-            <p>No login required for this demo build.</p>
-          </div>
+          {isAuthenticated && user ? (
+            <div className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
+              <p className="truncate font-semibold text-slate-700">{user.name}</p>
+              <p className="truncate">{user.email}</p>
+              <button
+                onClick={logout}
+                className="mt-2 text-xs font-bold text-red-600 hover:underline"
+              >
+                Log out
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-500">
+              <p className="font-semibold text-slate-700">Staff workspace</p>
+              <p>
+                <Link href="/login" className="font-bold text-blue-600 hover:underline">
+                  Sign in
+                </Link>{" "}
+                to access all features.
+              </p>
+            </div>
+          )}
         </div>
       </aside>
     </>

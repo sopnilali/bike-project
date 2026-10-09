@@ -39,3 +39,17 @@ export interface ApiErrorEnvelope {
   message: string;
   stack?: string;
 }
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  createdAt?: string;
+  photoUrl?: string | null;
+}
+
+export interface AuthPayload {
+  user: AuthUser;
+  token: string;
+}
